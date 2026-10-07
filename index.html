@@ -1,0 +1,389 @@
+<title>Lume Host Stand</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: host-stand console. Header + summary, then guest list | floor plan | table panel; stacks on narrow screens. */
+:root {
+  --bg: #f3f6f7; --surface: #ffffff; --floor: #e9eef0; --ink: #16212a; --muted: #5d6b76; --line: #d8e0e4;
+  --accent: #1d5c86; --accent-soft: #e2edf5;
+  --ok: #2b8550; --ok-soft: #e1f2e7; --warn: #b97a07; --warn-soft: #fbf0d9;
+  --bad: #bf3d2b; --bad-soft: #fbe5e1; --walk: #6550b0; --walk-soft: #ece8f8; --held: #7d8b96;
+  --font-display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #11171c; --surface: #19222a; --floor: #141c22; --ink: #e6edf1; --muted: #93a2ad; --line: #2b3842;
+  --accent: #6fb0dc; --accent-soft: #1d3446;
+  --ok: #5cc184; --ok-soft: #173426; --warn: #e3ac3c; --warn-soft: #3a2d10;
+  --bad: #ec7a68; --bad-soft: #3d1f1a; --walk: #a796ea; --walk-soft: #2a2442; --held: #8796a1; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #11171c; --surface: #19222a; --floor: #141c22; --ink: #e6edf1; --muted: #93a2ad; --line: #2b3842;
+  --accent: #6fb0dc; --accent-soft: #1d3446;
+  --ok: #5cc184; --ok-soft: #173426; --warn: #e3ac3c; --warn-soft: #3a2d10;
+  --bad: #ec7a68; --bad-soft: #3d1f1a; --walk: #a796ea; --walk-soft: #2a2442; --held: #8796a1; color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 14px/1.45 var(--font-body); padding: 16px; }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible, .table:focus-visible, .guest:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; margin-bottom: 14px; }
+.brand { display: flex; flex-direction: column; margin-right: auto; }
+.brand h1 { font: 700 22px/1.1 var(--font-display); margin: 0; letter-spacing: -0.01em; }
+.outage { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--bad); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+.outage::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--bad); animation: pulse 1.6s infinite; }
+@keyframes pulse { 50% { opacity: .3; } }
+@media (prefers-reduced-motion: reduce) { .outage::before, .typing { animation: none !important; } }
+
+.turns { display: inline-flex; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 3px; }
+.turns button { border: 0; background: none; padding: 7px 14px; border-radius: 7px; font-weight: 600; }
+.turns button[aria-pressed="true"] { background: var(--accent); color: var(--surface); }
+.tools { display: flex; gap: 8px; }
+.btn { border: 1px solid var(--line); background: var(--surface); padding: 7px 12px; border-radius: 8px; font-weight: 500; }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--surface); font-weight: 600; }
+.btn.danger { color: var(--bad); }
+.btn.full { width: 100%; }
+
+.summary { display: flex; flex-wrap: wrap; gap: 8px 22px; padding: 10px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 14px; }
+.stat { display: flex; align-items: baseline; gap: 6px; }
+.stat b { font: 700 18px var(--font-display); font-variant-numeric: tabular-nums; }
+.stat span { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+.dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; align-self: center; }
+
+main { display: grid; grid-template-columns: 290px minmax(0, 1fr) 310px; gap: 14px; align-items: start; }
+@media (max-width: 1080px) { main { grid-template-columns: minmax(0, 1fr) 300px; } .guests { grid-column: 1 / -1; order: 3; } }
+@media (max-width: 720px) { main { grid-template-columns: minmax(0, 1fr); } .guests { order: 3; } }
+.pane { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; min-width: 0; }
+.pane h2 { font: 600 12px var(--font-body); text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin: 0; padding: 12px 14px 8px; }
+
+/* Guest list */
+.guests ul { list-style: none; margin: 0; padding: 0 8px 8px; max-height: 640px; overflow-y: auto; }
+.guest { width: 100%; text-align: left; display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; padding: 8px 10px; border: 1px solid transparent; border-radius: 8px; background: none; }
+.guest:hover { background: var(--bg); }
+.guest.sel { border-color: var(--accent); background: var(--accent-soft); }
+.guest.dim { opacity: .5; }
+.guest .name { font-weight: 600; }
+.guest .meta { color: var(--muted); font-size: 12px; }
+.chips { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px; }
+.chip { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 99px; background: var(--bg); color: var(--muted); }
+.chip.ok { background: var(--ok-soft); color: var(--ok); }
+.chip.warn { background: var(--warn-soft); color: var(--warn); }
+.chip.bad { background: var(--bad-soft); color: var(--bad); }
+.chip.walk { background: var(--walk-soft); color: var(--walk); }
+.sub { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); padding: 10px 10px 4px; }
+
+/* Floor plan */
+.floorwrap { padding: 12px; }
+.floor { position: relative; container-type: inline-size; aspect-ratio: 4 / 3; max-width: 100%; background: var(--floor); border: 2px solid var(--line); border-radius: 6px; }
+.fixture { position: absolute; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; justify-content: center; border: 1px dashed var(--line); background: var(--surface); }
+.table { position: absolute; transform: translate(-50%, -50%); width: calc(var(--s) * 1cqw); aspect-ratio: 1; border-radius: 50%; border: 2px solid var(--held); background: var(--surface); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0; line-height: 1.1; }
+.table .tn { font: 700 clamp(11px, 2.4cqw, 17px) var(--font-display); }
+.table .tg { font-size: clamp(8px, 1.5cqw, 11px); color: var(--muted); max-width: 90%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.table .chair { position: absolute; left: 50%; top: 50%; width: clamp(5px, 1.4cqw, 10px); aspect-ratio: 1; margin: calc(clamp(5px, 1.4cqw, 10px) / -2); border-radius: 50%; background: var(--held); opacity: .55; transform: rotate(var(--a)) translate(calc(var(--s) * .5cqw + clamp(5px, 1.3cqw, 10px))); }
+.table.held { border-style: dashed; border-color: var(--accent); }
+.table.pending { border-color: var(--warn); background: var(--warn-soft); }
+.table.noreply { border-color: var(--bad); background: var(--bad-soft); border-style: dashed; }
+.table.confirmed { border-color: var(--ok); background: var(--ok-soft); }
+.table.walkin { border-color: var(--walk); background: var(--walk-soft); }
+.table.confirmed .chair { background: var(--ok); opacity: .8; }
+.table.walkin .chair { background: var(--walk); opacity: .8; }
+.table.sel { box-shadow: 0 0 0 4px var(--accent-soft), 0 0 0 6px var(--accent); }
+.table.fits { border-color: var(--accent); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 10px 2px 0; font-size: 12px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 5px; }
+
+/* Panel */
+.panel { padding: 0 14px 14px; display: flex; flex-direction: column; gap: 12px; }
+.panel h3 { font: 700 20px var(--font-display); margin: 0; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; font-size: 13px; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; }
+.hint { color: var(--muted); font-size: 13px; margin: 0; }
+.thread { display: flex; flex-direction: column; gap: 6px; background: var(--bg); border-radius: 10px; padding: 10px; }
+.bubble { max-width: 88%; padding: 7px 10px; border-radius: 12px; font-size: 13px; }
+.bubble.out { align-self: flex-end; background: var(--accent); color: var(--surface); border-bottom-right-radius: 3px; }
+.bubble.in { align-self: flex-start; background: var(--surface); border: 1px solid var(--line); border-bottom-left-radius: 3px; }
+.bubble.sys { align-self: center; background: none; color: var(--muted); font-size: 11px; padding: 0; }
+.typing { align-self: flex-start; color: var(--muted); font-size: 12px; animation: pulse 1s infinite; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; }
+.row > .btn { flex: 1; }
+.stepper { display: flex; align-items: center; gap: 10px; }
+.stepper b { font: 700 22px var(--font-display); min-width: 2ch; text-align: center; }
+.stepper button { width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); font-weight: 700; }
+
+/* Host sheet + toast */
+.sheet { position: fixed; inset: 0; background: color-mix(in srgb, var(--ink) 45%, transparent); display: flex; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; z-index: 10; }
+.sheet .card { background: var(--surface); border-radius: 12px; padding: 20px; width: 100%; max-width: 720px; display: flex; flex-direction: column; gap: 14px; }
+.sheet h3 { font: 700 20px var(--font-display); margin: 0; }
+.sheet .scroll { overflow-x: auto; }
+.sheet table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.sheet th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); border-bottom: 1px solid var(--line); padding: 6px 8px; }
+.sheet td { border-bottom: 1px solid var(--line); padding: 6px 8px; white-space: nowrap; }
+.sheet h4 { margin: 6px 0 0; font: 600 15px var(--font-display); }
+.toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-size: 13px; max-width: calc(100% - 32px); z-index: 20; }
+</style>
+
+<header>
+  <div class="brand">
+    <span class="outage">Resy offline since 1:42 PM · manual mode</span>
+    <h1>Osteria Lume · Tonight</h1>
+  </div>
+  <div class="turns" id="turns"></div>
+  <div class="tools">
+    <button class="btn" id="sheetBtn">Host sheet</button>
+    <button class="btn danger" id="resetBtn">Reset demo</button>
+  </div>
+</header>
+<div class="summary" id="summary"></div>
+<main>
+  <section class="pane guests"><h2>Recovered from Resy emails</h2><ul id="guests"></ul></section>
+  <section class="pane"><h2 id="floorTitle">Floor</h2><div class="floorwrap"><div class="floor" id="floor"></div>
+    <div class="legend">
+      <span><i class="dot" style="background:var(--accent)"></i>Held</span>
+      <span><i class="dot" style="background:var(--warn)"></i>SMS sent</span>
+      <span><i class="dot" style="background:var(--ok)"></i>Confirmed</span>
+      <span><i class="dot" style="background:var(--bad)"></i>No reply</span>
+      <span><i class="dot" style="background:var(--walk)"></i>Walk-in</span>
+    </div></div></section>
+  <section class="pane"><h2>Table</h2><div class="panel" id="panel"></div></section>
+</main>
+<div id="sheet" hidden></div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+const TURNS = ['6:00', '8:30'];
+// x/y are % of the floor; s is diameter in % of floor width
+const TABLES = [
+  [11,6,14,26],[5,4,38,26],[6,4,62,26],[12,6,86,26],
+  [1,2,14,55],[7,4,38,55],[8,4,62,55],[2,2,86,55],
+  [3,2,14,78],[9,4,38,78],[10,4,62,78],[4,2,86,78],
+].map(([id, seats, x, y]) => ({ id, seats, x, y, s: { 2: 8.5, 4: 11, 6: 13.5 }[seats] }));
+const SEATS_PER_TURN = TABLES.reduce((n, t) => n + t.seats, 0);
+
+// Seed: recovered from Resy confirmation emails. reply = how the guest will answer the SMS.
+const GUESTS = [
+  ['Ana Rivera', '(212) 555-0114', 4, '6:00', 'Y'],
+  ['Dana Whitfield', '(917) 555-0162', 4, '6:00', 'Y'],
+  ['D. Whitfield', '(917) 555-0162', 4, '6:00', 'Y'],
+  ['Kenji Morimoto', '(646) 555-0127', 2, '6:00', 'Y'],
+  ['Priya Raman', '(347) 555-0181', 2, '6:00', 'N'],
+  ['Tom & Leah Becker', '(212) 555-0139', 2, '6:00', 'Y'],
+  ['Okafor party', '(718) 555-0150', 7, '6:00', 'Y'],
+  ['Sofia Marchetti', '(646) 555-0105', 6, '6:00', 'Y'],
+  ['James Holloway', '(917) 555-0176', 3, '6:00', null],
+  ['Mei Lin', '(212) 555-0193', 2, '6:00', 'Y'],
+  ['Carlos Mendez', '(347) 555-0118', 4, '6:00', 'Y'],
+  ['Hannah Weiss', '(718) 555-0133', 5, '6:00', 'Y'],
+  ['Marcus Lee', '(646) 555-0144', 2, '6:00', 'N'],
+  ['Grace Oduya', '(917) 555-0108', 4, '6:00', 'Y'],
+  ['Ben Sato', '(212) 555-0171', 2, '6:00', 'Y'],
+  ['Marcus Lee', '(646) 555-0144', 2, '8:30', 'Y'],
+  ['Rachel Kim', '(347) 555-0129', 4, '8:30', 'Y'],
+  ['Elena Petrova', '(718) 555-0186', 2, '8:30', 'Y'],
+  ['Watanabe group', '(646) 555-0153', 6, '8:30', 'Y'],
+  ['Luis Ortega', '(212) 555-0167', 3, '8:30', 'N'],
+  ['Amara Diallo', '(917) 555-0112', 2, '8:30', 'Y'],
+  ['Noah Fischer', '(347) 555-0145', 4, '8:30', null],
+  ['Isabel Cruz', '(718) 555-0198', 2, '8:30', 'Y'],
+  ['Owen Gallagher', '(646) 555-0121', 4, '8:30', 'Y'],
+  ['Yuki Tanaka', '(212) 555-0136', 2, '8:30', 'Y'],
+  ['Fatima Haddad', '(917) 555-0159', 5, '8:30', 'Y'],
+  ['Sam Abrams', '(347) 555-0174', 2, '8:30', 'Y'],
+  ['Chloe Duval', '(718) 555-0102', 4, '8:30', 'Y'],
+].map(([name, phone, size, turn, reply], i) => ({ id: 'g' + i, name, phone, size, turn, reply }));
+const G = Object.fromEntries(GUESTS.map(g => [g.id, g]));
+const first = g => g.name.split(/[ .]/)[0] || g.name;
+
+const KEY = 'lume-host-v1';
+const fresh = () => ({ turn: '6:00', guest: null, table: null, slots: { '6:00': {}, '8:30': {} }, gstat: {} });
+let S;
+try { S = JSON.parse(localStorage.getItem(KEY)) || fresh(); } catch { S = fresh(); }
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {} };
+
+function placement(gid) {
+  for (const turn of TURNS) for (const [tid, sl] of Object.entries(S.slots[turn]))
+    if (sl.guest === gid) return { turn, tid: +tid, sl };
+  return null;
+}
+function dupOf(g) { return GUESTS.find(o => o !== g && o.phone === g.phone && o.turn === g.turn); }
+function smsText(g, turn, tid) {
+  const moved = turn !== g.turn ? ` (moved from your ${g.turn} request)` : '';
+  return `Hi ${first(g)}, it's Osteria Lume. Our booking system is down, so we're confirming by text: party of ${g.size} at ${turn} PM tonight${moved}, table ${tid}. Reply Y to confirm or N to cancel.`;
+}
+
+let toastT;
+function toast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 3200); }
+
+// Simulated replies. Timers re-arm on reload for any slot still waiting.
+const timers = {};
+function arm(turn, tid) {
+  const k = turn + tid; if (timers[k]) return;
+  timers[k] = setTimeout(() => { delete timers[k]; reply(turn, tid); }, 2200);
+}
+function reply(turn, tid) {
+  const sl = S.slots[turn][tid]; if (!sl || sl.status !== 'pending') return;
+  const g = G[sl.guest];
+  if (g.reply === 'Y') { sl.log.push({ d: 'in', t: 'Y' }); sl.status = 'confirmed'; toast(`${g.name} confirmed · table ${tid}, ${turn}`); }
+  else if (g.reply === 'N') {
+    delete S.slots[turn][tid]; S.gstat[g.id] = 'declined';
+    toast(`${g.name} replied N. Table ${tid} at ${turn} is open again.`);
+  } else { sl.log.push({ d: 'sys', t: 'No reply after 15 min' }); sl.status = 'noreply'; toast(`No reply from ${g.name}. Call ${g.phone}.`); }
+  save(); render();
+}
+
+const actions = {
+  turn: t => { S.turn = t; S.table = null; },
+  guest: id => {
+    const p = placement(id);
+    if (p) { S.turn = p.turn; S.table = p.tid; S.guest = null; return; }
+    S.guest = S.guest === id ? null : id;
+  },
+  table: id => {
+    id = +id; const sl = S.slots[S.turn][id], t = TABLES.find(t => t.id === id);
+    if (S.guest && !sl) {
+      const g = G[S.guest];
+      if (g.size > t.seats) { toast(`Table ${id} seats ${t.seats}. ${g.name} is a party of ${g.size}.` + (g.size > 6 ? ' Call to split across two tables.' : '')); return; }
+      S.slots[S.turn][id] = { guest: g.id, status: 'held', log: [] };
+      delete S.gstat[g.id]; S.guest = null;
+    }
+    S.table = id; S.wn = null;
+  },
+  send: () => { const sl = S.slots[S.turn][S.table], g = G[sl.guest]; sl.log.push({ d: 'out', t: smsText(g, S.turn, S.table) }); sl.status = 'pending'; arm(S.turn, S.table); },
+  phone: () => { const sl = S.slots[S.turn][S.table]; sl.log.push({ d: 'sys', t: 'Confirmed by phone call' }); sl.status = 'confirmed'; },
+  release: () => {
+    const sl = S.slots[S.turn][S.table];
+    if (sl.guest && sl.status === 'noreply') S.gstat[sl.guest] = 'noreply';
+    delete S.slots[S.turn][S.table];
+  },
+  walkin: n => { S.slots[S.turn][S.table] = { walkin: +n, status: 'walkin', log: [] }; },
+  step: d => { const t = TABLES.find(t => t.id === S.table); S.wn = Math.max(1, Math.min(t.seats, (S.wn || t.seats) + +d)); },
+};
+
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-a]'); if (!b) return;
+  actions[b.dataset.a](b.dataset.v); save(); render();
+});
+document.getElementById('resetBtn').onclick = () => { Object.values(timers).forEach(clearTimeout); for (const k in timers) delete timers[k]; S = fresh(); save(); render(); toast('Demo reset'); };
+document.getElementById('sheetBtn').onclick = () => { showSheet(); };
+
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const STATUS = { held: ['Held, not sent', ''], pending: ['SMS sent', 'warn'], confirmed: ['Confirmed', 'ok'], noreply: ['No reply', 'bad'], walkin: ['Walk-in', 'walk'] };
+
+function render() {
+  const slots = S.slots[S.turn];
+  document.getElementById('turns').innerHTML = TURNS.map(t => `<button data-a="turn" data-v="${t}" aria-pressed="${t === S.turn}">${t} PM</button>`).join('');
+
+  // Summary
+  const v = Object.values(slots), c = st => v.filter(s => s.status === st).length;
+  const covers = v.reduce((n, s) => n + (s.status === 'confirmed' ? G[s.guest].size : s.status === 'walkin' ? s.walkin : 0), 0);
+  const unplaced = GUESTS.filter(g => !placement(g.id) && S.gstat[g.id] !== 'declined').length;
+  document.getElementById('summary').innerHTML = [
+    ['var(--ok)', c('confirmed'), 'confirmed'], ['var(--warn)', c('pending') + c('held'), 'awaiting'], ['var(--bad)', c('noreply'), 'no reply'],
+    ['var(--walk)', c('walkin'), 'walk-ins'], ['var(--line)', 12 - v.length, 'open tables'],
+  ].map(([col, n, l]) => `<div class="stat"><i class="dot" style="background:${col}"></i><b>${n}</b><span>${l}</span></div>`).join('')
+    + `<div class="stat"><b>${covers}/${SEATS_PER_TURN}</b><span>covers seated · ${S.turn} PM</span></div>`
+    + `<div class="stat"><b>${unplaced}</b><span>guests unplaced</span></div>`;
+
+  // Guests: this turn's requests first, then the other turn, then placed, then declined
+  const groups = { now: [], other: [], placed: [], out: [] };
+  for (const g of GUESTS) {
+    if (S.gstat[g.id] === 'declined') groups.out.push(g);
+    else if (placement(g.id)) groups.placed.push(g);
+    else groups[g.turn === S.turn ? 'now' : 'other'].push(g);
+  }
+  const li = g => {
+    const p = placement(g.id), d = dupOf(g), chips = [`<span class="chip">req ${g.turn}</span>`];
+    if (p) chips.push(`<span class="chip ${STATUS[p.sl.status][1]}">T${p.tid} · ${p.turn} · ${STATUS[p.sl.status][0]}</span>`);
+    if (S.gstat[g.id] === 'declined') chips.push('<span class="chip bad">Cancelled by SMS</span>');
+    if (S.gstat[g.id] === 'noreply') chips.push('<span class="chip bad">No reply · call</span>');
+    if (d) chips.push(`<span class="chip bad">Possible duplicate of ${esc(d.name)}</span>`);
+    if (g.size > 6) chips.push('<span class="chip warn">No single table fits</span>');
+    const cls = ['guest', S.guest === g.id && 'sel', S.gstat[g.id] === 'declined' && 'dim'].filter(Boolean).join(' ');
+    return `<li><button class="${cls}" data-a="guest" data-v="${g.id}" ${S.gstat[g.id] === 'declined' ? 'disabled' : ''}>
+      <span class="name">${esc(g.name)}</span><span class="meta">party of ${g.size}</span>
+      <span class="meta mono" style="grid-column:1/-1">${g.phone}</span><span class="chips">${chips.join('')}</span></button></li>`;
+  };
+  const sec = (title, list) => list.length ? `<li class="sub">${title} · ${list.length}</li>` + list.map(li).join('') : '';
+  document.getElementById('guests').innerHTML = sec(`Requested ${S.turn}`, groups.now) + sec(`Requested ${TURNS.find(t => t !== S.turn)}`, groups.other)
+    + sec('Placed', groups.placed) + sec('Cancelled', groups.out);
+
+  // Floor
+  const sg = S.guest && G[S.guest];
+  document.getElementById('floorTitle').textContent = sg ? `Pick a table for ${sg.name} (${sg.size})` : `Floor · ${S.turn} PM seating`;
+  document.getElementById('floor').innerHTML =
+    `<div class="fixture" style="left:20%;right:20%;top:0;height:8%;border-top:0">Kitchen pass</div>
+     <div class="fixture" style="left:0;top:36%;width:3%;height:30%;border-left:0;writing-mode:vertical-rl">Bar</div>
+     <div class="fixture" style="left:38%;right:38%;bottom:0;height:6%;border-bottom:0">Host · entry</div>`
+    + TABLES.map(t => {
+      const sl = slots[t.id], fits = sg && !sl && sg.size <= t.seats;
+      const who = sl ? (sl.walkin ? `walk-in · ${sl.walkin}` : `${first(G[sl.guest])} · ${G[sl.guest].size}`) : `${t.seats}-top`;
+      const chairs = Array.from({ length: t.seats }, (_, i) => `<i class="chair" style="--a:${i * 360 / t.seats - 90}deg"></i>`).join('');
+      const cls = ['table', sl && sl.status, S.table === t.id && 'sel', fits && 'fits'].filter(Boolean).join(' ');
+      return `<button class="${cls}" style="left:${t.x}%;top:${t.y}%;--s:${t.s}" data-a="table" data-v="${t.id}" aria-label="Table ${t.id}, ${who}">
+        ${chairs}<span class="tn">${t.id}</span><span class="tg">${esc(who)}</span></button>`;
+    }).join('');
+
+  renderPanel();
+}
+
+function renderPanel() {
+  const el = document.getElementById('panel');
+  if (!S.table) { el.innerHTML = `<p class="hint">Pick a guest on the left, then tap an open table to hold it. Tap an open table with no guest selected to seat a walk-in.</p>`; return; }
+  const t = TABLES.find(x => x.id === S.table), sl = S.slots[S.turn][S.table];
+  let h = `<h3>Table ${t.id}</h3><dl class="kv"><dt>Seats</dt><dd>${t.seats}</dd><dt>Seating</dt><dd>${S.turn} PM</dd>`;
+  if (!sl) {
+    const n = Math.min(S.wn || t.seats, t.seats);
+    el.innerHTML = h + `<dt>Status</dt><dd>Open</dd></dl>
+      <p class="hint">Select a guest from the list to hold this table, or seat a walk-in now.</p>
+      <div class="stepper"><button data-a="step" data-v="-1" aria-label="Fewer guests">−</button><b class="mono">${n}</b><button data-a="step" data-v="1" aria-label="More guests">+</button><span class="hint">guests</span></div>
+      <button class="btn full" style="color:var(--walk)" data-a="walkin" data-v="${n}">Seat walk-in party of ${n}</button>`;
+    return;
+  }
+  if (sl.walkin) { el.innerHTML = h + `<dt>Status</dt><dd>Walk-in, ${sl.walkin} guests</dd></dl><button class="btn full" data-a="release">Clear table</button>`; return; }
+  const g = G[sl.guest];
+  h += `<dt>Guest</dt><dd>${esc(g.name)}</dd><dt>Party</dt><dd>${g.size}</dd><dt>Phone</dt><dd class="mono">${g.phone}</dd>
+        <dt>Status</dt><dd><span class="chip ${STATUS[sl.status][1]}">${STATUS[sl.status][0]}</span></dd></dl>`;
+  if (g.turn !== S.turn) h += `<p class="hint" style="color:var(--warn)">Requested ${g.turn}. The text will tell them about the move to ${S.turn}.</p>`;
+  const log = sl.log.map(m => `<div class="bubble ${m.d}">${esc(m.t)}</div>`).join('');
+  if (sl.status === 'held') {
+    h += `<div class="thread"><div class="bubble sys">Preview</div><div class="bubble out">${esc(smsText(g, S.turn, t.id))}</div></div>
+      <div class="row"><button class="btn primary" data-a="send">Send SMS</button><button class="btn" data-a="release">Unassign</button></div>`;
+  } else {
+    h += `<div class="thread">${log}${sl.status === 'pending' ? `<div class="typing">${esc(first(g))} is typing…</div>` : ''}</div>`;
+    if (sl.status === 'noreply') h += `<p class="hint">Call <span class="mono">${g.phone}</span>, then record the result.</p>
+      <div class="row"><button class="btn primary" data-a="phone">Confirmed by phone</button><button class="btn danger" data-a="release">Release table</button></div>`;
+    if (sl.status === 'confirmed') h += `<button class="btn full" data-a="release">Release table</button>`;
+  }
+  el.innerHTML = h;
+}
+
+function showSheet() {
+  const box = document.getElementById('sheet');
+  const lines = [];
+  const body = TURNS.map(turn => {
+    lines.push(`${turn} PM`);
+    const rows = TABLES.slice().sort((a, b) => a.id - b.id).map(t => {
+      const sl = S.slots[turn][t.id];
+      const g = sl && sl.guest && G[sl.guest];
+      const r = [t.id, sl ? STATUS[sl.status][0] : 'Open', g ? g.name : sl ? 'Walk-in' : '', g ? g.size : sl ? sl.walkin : '', g ? g.phone : ''];
+      lines.push(r.join('\t'));
+      return `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${esc(r[2])}</td><td>${r[3]}</td><td class="mono">${r[4]}</td></tr>`;
+    }).join('');
+    return `<h4>${turn} PM</h4><div class="scroll"><table><thead><tr><th>Table</th><th>Status</th><th>Guest</th><th>Party</th><th>Phone</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  }).join('');
+  box.className = 'sheet'; box.hidden = false;
+  box.innerHTML = `<div class="card" role="dialog" aria-label="Host sheet"><div class="row" style="align-items:center"><h3 style="flex:1">Host sheet · paper backup</h3>
+    <button class="btn" id="copySheet">Copy as text</button><button class="btn" id="closeSheet">Close</button></div>
+    <p class="hint">Paste into a doc and print it for the host stand in case the laptop goes down too.</p>${body}</div>`;
+  const txt = lines.join('\n');
+  box.querySelector('#closeSheet').onclick = () => box.hidden = true;
+  box.querySelector('#copySheet').onclick = () => navigator.clipboard.writeText(txt).then(() => toast('Host sheet copied'), () => toast('Copy blocked here. Select the table and copy it by hand.'));
+  box.onclick = e => { if (e.target === box) box.hidden = true; };
+}
+
+for (const turn of TURNS) for (const [tid, sl] of Object.entries(S.slots[turn])) if (sl.status === 'pending') arm(turn, +tid);
+render();
+</script>
